@@ -1,3 +1,24 @@
+const https = require("https");
+
+function httpsPost(data, headers) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "api.anthropic.com",
+      path: "/v1/messages",
+      method: "POST",
+      headers: { ...headers, "Content-Length": Buffer.byteLength(data) }
+    };
+    const req = https.request(options, (res) => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => resolve({ status: res.statusCode, body }));
+    });
+    req.on("error", reject);
+    req.write(data);
+    req.end();
+  });
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return {
@@ -13,41 +34,36 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || "{}");
-    const userKey = event.headers["x-api-key"] || "";
+    const userKey = (event.headers["x-api-key"] || event.headers["X-Api-Key"] || "").trim();
     const apiKey = userKey || process.env.ANTHROPIC_API_KEY || "";
 
     if (!apiKey) {
       return {
         statusCode: 401,
-        headers: { "Access-Control-Allow-Origin": "*" },
+        headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" },
         body: JSON.stringify({ error: { message: "No API key provided" } }),
       };
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify(body),
+    const data = JSON.stringify(body);
+    const result = await httpsPost(data, {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
     });
 
-    const data = await response.json();
-
     return {
-      statusCode: response.status,
+      statusCode: result.status,
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
       },
-      body: JSON.stringify(data),
+      body: result.body,
     };
   } catch (err) {
     return {
       statusCode: 500,
-      headers: { "Access-Control-Allow-Origin": "*" },
+      headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" },
       body: JSON.stringify({ error: { message: err.message } }),
     };
   }
