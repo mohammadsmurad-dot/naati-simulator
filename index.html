@@ -25,7 +25,7 @@
 <div id="app"></div>
 
 <script>
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-4-5";
 const NAATI_TOPICS = [
   "Health – Doctor's Appointment for Diabetes Management",
   "Health – Mental Health Assessment at Community Clinic",
@@ -49,14 +49,11 @@ const NAATI_TOPICS = [
 ];
 
 const SYS = `You are a NAATI CCL exam dialogue generator. Return ONLY valid JSON. No markdown, no code fences, no explanation.
-
 Generate a realistic NAATI CCL dialogue with EXACTLY 10 segments alternating English then Urdu.
-
 TRANSLATION RULES — CRITICAL:
 - Every single word in the original MUST be translated. Never skip names, places, medical terms, numbers, or any detail.
 - Only keep a word in English if it has NO Urdu equivalent and is universally used as-is (e.g. "Medicare", "Centrelink", "TAFE").
 - All other words must be in proper Urdu or Roman Urdu.
-
 Segment rules:
 - English segments: 25-35 words, natural spoken Australian English
 - Urdu segments:
@@ -64,18 +61,15 @@ Segment rules:
   - "urdu_script": same in proper Urdu script
 - "translation": COMPLETE — English→Roman Urdu or Urdu→English, every word
 - "context": 2-3 sentence English briefing as in real NAATI CCL test
-
 Return ONLY this JSON:
 {"title":"string","english_speaker":"string","urdu_speaker":"string","context":"string","segments":[{"id":1,"lang":"en","speaker_label":"string","text":"string","translation":"string"},{"id":2,"lang":"ur","speaker_label":"string","text":"string","urdu_script":"string","translation":"string"}]}`;
 
 const SCORE_SYS = `You are a NAATI CCL exam marker. Score the candidate's interpretation.
-
 NAATI CCL marking per segment (total 5 marks):
 - Accuracy (2 marks): All key ideas conveyed correctly
 - Completeness (1 mark): Nothing important omitted
 - Language & Expression (1 mark): Natural and fluent language
 - Terminology (1 mark): Correct domain-specific terms
-
 Return ONLY this JSON, no markdown:
 {"score":3,"max":5,"accuracy":1,"completeness":1,"language":1,"terminology":0,"feedback":"One specific constructive sentence."}`;
 
@@ -191,16 +185,15 @@ function startViz(stream) {
       const levels = [];
       const step = Math.floor(buf.length/20);
       for(let i=0;i<20;i++) levels.push(buf[i*step]||0);
-      // Update visualiser bars directly without setState to avoid DOM rebuild
       state.voiceLevels = levels;
-      const vizWrap = document.getElementById("vizWrap");
-      if (vizWrap) {
-        Array.from(vizWrap.children).forEach((bar, i) => {
-          const h2 = Math.max(4, Math.round((levels[i]/255)*46));
-          bar.style.height = h2 + "px";
-          bar.style.background = `hsl(${levels[i]<50?0:levels[i]<150?30:120},70%,45%)`;
-        });
-      }
+const vizWrap = document.getElementById("vizWrap");
+if(vizWrap) {
+  Array.from(vizWrap.children).forEach((bar,i)=>{
+    const h2=Math.max(4,Math.round((levels[i]/255)*46));
+    bar.style.height=h2+"px";
+    bar.style.background=`hsl(${levels[i]<50?0:levels[i]<150?30:120},70%,45%)`;
+  });
+}
     }
     tick();
   } catch(e){}
@@ -258,17 +251,15 @@ function stopRecording() {
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 async function callAPI(body, attempt=1) {
-  // Call our own Netlify function — no CORS issues, works from any domain
   const headers = { "Content-Type": "application/json" };
   if (state.customApiKey) headers["x-api-key"] = state.customApiKey;
-
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://naatipractice.yaali-sm.workers.dev", {
       method: "POST",
       headers,
       body: JSON.stringify(body),
     });
-    if (res.status===529||res.status===503) {
+   if (res.status===529||res.status===503) {
       if (attempt<4) { setState({retryCount:attempt}); await new Promise(r=>setTimeout(r,attempt*3000)); return callAPI(body,attempt+1); }
       throw new Error("__BUSY__");
     }
