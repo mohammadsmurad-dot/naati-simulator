@@ -263,7 +263,7 @@ async function callAPI(body, attempt=1) {
   if (state.customApiKey) headers["x-api-key"] = state.customApiKey;
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://naatipractice.yaali-sm.workers.dev", {
       method: "POST",
       headers,
       body: JSON.stringify(body),
