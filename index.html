@@ -233,7 +233,7 @@ async function startRecording() {
       stream.getTracks().forEach(t=>t.stop());
       stopViz();
     };
-    mediaRecorder.start(200);
+    setTimeout(() => setState({recording: true}), 100);
   } catch(e) {
     setState({micStatus:"denied",micReady:false});
     stopViz();
