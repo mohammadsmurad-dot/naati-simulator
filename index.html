@@ -25,7 +25,7 @@
 <div id="app"></div>
 
 <script>
-const MODEL = "claude-sonnet-4-5";
+const MODEL = "claude-sonnet-4-20250514";
 const NAATI_TOPICS = [
   "Health – Doctor's Appointment for Diabetes Management",
   "Health – Mental Health Assessment at Community Clinic",
@@ -191,7 +191,16 @@ function startViz(stream) {
       const levels = [];
       const step = Math.floor(buf.length/20);
       for(let i=0;i<20;i++) levels.push(buf[i*step]||0);
-      setState({voiceLevels:levels});
+      // Update visualiser bars directly without setState to avoid DOM rebuild
+      state.voiceLevels = levels;
+      const vizWrap = document.getElementById("vizWrap");
+      if (vizWrap) {
+        Array.from(vizWrap.children).forEach((bar, i) => {
+          const h2 = Math.max(4, Math.round((levels[i]/255)*46));
+          bar.style.height = h2 + "px";
+          bar.style.background = `hsl(${levels[i]<50?0:levels[i]<150?30:120},70%,45%)`;
+        });
+      }
     }
     tick();
   } catch(e){}
@@ -233,7 +242,7 @@ async function startRecording() {
       stream.getTracks().forEach(t=>t.stop());
       stopViz();
     };
-    setTimeout(() => setState({recording: true}), 100);
+    mediaRecorder.start(200);
   } catch(e) {
     setState({micStatus:"denied",micReady:false});
     stopViz();
@@ -249,15 +258,17 @@ function stopRecording() {
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 async function callAPI(body, attempt=1) {
+  // Call our own Netlify function — no CORS issues, works from any domain
   const headers = { "Content-Type": "application/json" };
   if (state.customApiKey) headers["x-api-key"] = state.customApiKey;
+
   try {
-    const res = await fetch("https://naatipractice.yaali-sm.workers.dev", {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers,
       body: JSON.stringify(body),
     });
-   if (res.status===529||res.status===503) {
+    if (res.status===529||res.status===503) {
       if (attempt<4) { setState({retryCount:attempt}); await new Promise(r=>setTimeout(r,attempt*3000)); return callAPI(body,attempt+1); }
       throw new Error("__BUSY__");
     }
@@ -602,7 +613,7 @@ function render() {
 
       // ── VOICE VISUALISER ──
       if(recording&&!paused) {
-        const vizWrap=div({style:{display:"flex",alignItems:"flex-end",justifyContent:"center",gap:"3px",height:"50px",marginBottom:"12px",padding:"4px 8px",background:"#fff5f5",borderRadius:"8px",border:"1px solid #F09595"}});
+        const vizWrap=div({style:{display:"flex",alignItems:"flex-end",justifyContent:"center",gap:"3px",height:"50px",marginBottom:"12px",padding:"4px 8px",background:"#fff5f5",borderRadius:"8px",border:"1px solid #F09595"},id:"vizWrap"});
         voiceLevels.forEach(level=>{
           const h2=Math.max(4,Math.round((level/255)*46));
           const bar=div({style:{width:"10px",height:`${h2}px`,background:`hsl(${level<50?0:level<150?30:120},70%,45%)`,borderRadius:"2px",transition:"height 0.05s"}});
