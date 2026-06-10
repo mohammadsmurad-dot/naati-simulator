@@ -252,7 +252,7 @@ async function callAPI(body, attempt=1) {
   const headers = { "Content-Type": "application/json" };
   if (state.customApiKey) headers["x-api-key"] = state.customApiKey;
   try {
-    const res = await fetch("/.netlify/functions/api", {
+    const res = await fetch("https://naatipractice.yaali-sm.workers.dev", {
       method: "POST",
       headers,
       body: JSON.stringify(body),
