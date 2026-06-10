@@ -84,6 +84,7 @@ let state = {
   customApiKey: "", customApiKeyInput: "", showKeyInput: false, showApiKey: false, keyError: "",
   micReady: false, micChecked: false,
   recording: false, audioUrl: null, audioBlob: null, micStatus: "idle",
+  liveTranscript: "",
   processing: false, transcript: "", segScore: null,
   // voice visualiser
   voiceLevels: new Array(20).fill(0),
@@ -218,7 +219,7 @@ async function initMic() {
 }
 
 async function startRecording() {
-  setState({micStatus:"requesting"});
+  setState({micStatus:"requesting", liveTranscript:""});
   try {
     const stream = await navigator.mediaDevices.getUserMedia({audio:true,video:false});
     setState({micStatus:"granted",micReady:true,recording:true});
@@ -236,17 +237,35 @@ async function startRecording() {
       stopViz();
     };
     mediaRecorder.start(200);
+    if(window.SpeechRecognition||window.webkitSpeechRecognition) {
+      const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
+      const rec = new SR();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = state.dialogue?.segments[state.segIdx]?.lang==="ur" ? "en-US" : "en-AU";
+      rec.onresult = e => {
+        let t = "";
+        for(let i=0;i<e.results.length;i++) t += e.results[i][0].transcript;
+        state.liveTranscript = t;
+        const el = document.getElementById("liveTranscriptEl");
+        if(el) el.textContent = t;
+      };
+      rec.start();
+      window._naatiRec = rec;
+    }
   } catch(e) {
     setState({micStatus:"denied",micReady:false});
     stopViz();
   }
 }
-
 function stopRecording() {
+  if(window._naatiRec) { try{window._naatiRec.stop();}catch(e){} window._naatiRec=null; }
   if(mediaRecorder&&state.recording) { mediaRecorder.stop(); setState({recording:false}); }
   stopTimer();
-  setState({segPhase:"answered"});
-  setTimeout(()=>autoScore(),900);
+  setState({segPhase:"answered", transcript: state.liveTranscript || ""});
+  if(state.liveTranscript) {
+    setTimeout(()=>scoreOnly(state.liveTranscript), 500);
+  }
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
@@ -328,7 +347,22 @@ async function autoScore() {
   } catch(e){ setState({transcript:"(Processing failed)"}); }
   setState({processing:false});
 }
-
+async function scoreOnly(tx) {
+  const seg = state.dialogue?.segments[state.segIdx];
+  if(!seg||!tx) return;
+  setState({processing:true, segScore:null});
+  try {
+    const r = await callAPI({model:MODEL,max_tokens:300,system:SCORE_SYS,
+      messages:[{role:"user",content:`Original: "${seg.text}"\nModel answer: "${seg.translation}"\nCandidate: "${tx}"`}]});
+    const d = await r.json();
+    const raw = (d.content||[]).map(c=>c.text||"").join("").trim().replace(/^```[\w]*\n?/,"").replace(/```\s*$/,"").trim();
+    try {
+      const sc = JSON.parse(raw);
+      setState({segScore:sc, scores:{...state.scores,[state.segIdx]:sc}});
+    } catch(e){}
+  } catch(e){}
+  setState({processing:false});
+}
 function nextSegment() {
   window.speechSynthesis?.cancel();
   resetTimer();
@@ -611,7 +645,8 @@ function render() {
           vizWrap.appendChild(bar);
         });
         card.appendChild(vizWrap);
-        card.appendChild(p({style:{textAlign:"center",fontSize:"11px",color:"#A32D2D",marginBottom:"10px"}},"🎙 Microphone active — speak your interpretation now"));
+        card.appendChild(p({style:{textAlign:"center",fontSize:"11px",color:"#A32D2D",marginBottom:"6px"}},"🎙 Microphone active — speak your interpretation now"));
+card.appendChild(p({style:{textAlign:"center",fontSize:"12px",color:"#334",marginBottom:"10px",fontStyle:"italic",minHeight:"18px"},id:"liveTranscriptEl"},""));
       } else {
         card.appendChild(p({style:{color:"#778",fontSize:"12px",marginBottom:"10px",textAlign:"center"}},recording?"Microphone active.":"Microphone not active — check permissions."));
       }
