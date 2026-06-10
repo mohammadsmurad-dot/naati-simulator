@@ -249,19 +249,15 @@ function stopRecording() {
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 async function callAPI(body, attempt=1) {
-  const headers = { 
-    "Content-Type": "application/json",
-    "x-api-key": "ANTHROPIC API KEY",
-    "anthropic-version": "2023-06-01",
-    "anthropic-dangerous-direct-browser-calls": "true"
-  };
+  const headers = { "Content-Type": "application/json" };
+  if (state.customApiKey) headers["x-api-key"] = state.customApiKey;
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("/.netlify/functions/api", {
       method: "POST",
       headers,
       body: JSON.stringify(body),
     });
-    if (res.status===529||res.status===503) {
+   if (res.status===529||res.status===503) {
       if (attempt<4) { setState({retryCount:attempt}); await new Promise(r=>setTimeout(r,attempt*3000)); return callAPI(body,attempt+1); }
       throw new Error("__BUSY__");
     }
