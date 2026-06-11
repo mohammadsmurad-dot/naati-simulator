@@ -200,6 +200,7 @@ async function startRecording() {
     audioChunks=[];
     const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")?"audio/webm;codecs=opus":
       MediaRecorder.isTypeSupported("audio/webm")?"audio/webm":"audio/ogg";
+    window._naatiMime = mime;
     mediaRecorder = new MediaRecorder(stream,{mimeType:mime});
     mediaRecorder.ondataavailable=e=>{if(e.data&&e.data.size>0)audioChunks.push(e.data);};
     mediaRecorder.onstop=()=>{
@@ -236,8 +237,9 @@ function stopRecording() {
   stopTimer();
   const tx = state.liveTranscript || "";
   if(mediaRecorder&&state.recording) {
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, {type: mediaRecorder.mimeType||"audio/webm"});
+   mediaRecorder.onstop = () => {
+      const mime = window._naatiMime || "audio/webm";
+      const blob = new Blob(audioChunks, {type: mime});
       const url = URL.createObjectURL(blob);
       state.audioBlob = blob;
       state.audioUrl = url;
