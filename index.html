@@ -173,40 +173,13 @@ function fmt(s){ return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%
 
 // ─── Voice Visualiser ────────────────────────────────────────────────────────
 function startViz(stream) {
-  try {
-    audioCtxViz = new (window.AudioContext||window.webkitAudioContext)();
-    const src = audioCtxViz.createMediaStreamSource(stream);
-    analyserNode = audioCtxViz.createAnalyser();
-    analyserNode.fftSize = 64;
-    src.connect(analyserNode);
-    const buf = new Uint8Array(analyserNode.frequencyBinCount);
-    function tick() {
-      vizAnimId = requestAnimationFrame(tick);
-      analyserNode.getByteFrequencyData(buf);
-      const levels = [];
-      const step = Math.floor(buf.length/20);
-      for(let i=0;i<20;i++) levels.push(buf[i*step]||0);
-      state.voiceLevels = levels;
-const vizWrap = document.getElementById("vizWrap");
-if(vizWrap) {
-  Array.from(vizWrap.children).forEach((bar,i)=>{
-    const h2=Math.max(4,Math.round((levels[i]/255)*46));
-    bar.style.height=h2+"px";
-    bar.style.background=`hsl(${levels[i]<50?0:levels[i]<150?30:120},70%,45%)`;
-  });
+  state.voiceLevels = new Array(20).fill(128);
 }
-    }
-    tick();
-  } catch(e){}
-}
-
 function stopViz() {
   if(vizAnimId) cancelAnimationFrame(vizAnimId);
-  if(audioCtxViz) audioCtxViz.close().catch(()=>{});
   analyserNode=null; audioCtxViz=null;
-  setState({voiceLevels:new Array(20).fill(0)});
+  state.voiceLevels = new Array(20).fill(0);
 }
-
 // ─── Microphone ──────────────────────────────────────────────────────────────
 async function initMic() {
   try {
@@ -638,15 +611,11 @@ function render() {
 
       // ── VOICE VISUALISER ──
       if(recording&&!paused) {
-        const vizWrap=div({style:{display:"flex",alignItems:"flex-end",justifyContent:"center",gap:"3px",height:"50px",marginBottom:"12px",padding:"4px 8px",background:"#fff5f5",borderRadius:"8px",border:"1px solid #F09595"},id:"vizWrap"});
-        voiceLevels.forEach(level=>{
-          const h2=Math.max(4,Math.round((level/255)*46));
-          const bar=div({style:{width:"10px",height:`${h2}px`,background:`hsl(${level<50?0:level<150?30:120},70%,45%)`,borderRadius:"2px",transition:"height 0.05s"}});
-          vizWrap.appendChild(bar);
-        });
-        card.appendChild(vizWrap);
+        card.appendChild(div({style:{textAlign:"center",marginBottom:"8px"}},[
+          span({style:{fontSize:"32px",animation:"pulse 1s infinite"}},"🔴")
+        ]));
         card.appendChild(p({style:{textAlign:"center",fontSize:"11px",color:"#A32D2D",marginBottom:"6px"}},"🎙 Microphone active — speak your interpretation now"));
-card.appendChild(p({style:{textAlign:"center",fontSize:"12px",color:"#334",marginBottom:"10px",fontStyle:"italic",minHeight:"18px"},id:"liveTranscriptEl"},""));
+        card.appendChild(p({style:{textAlign:"center",fontSize:"12px",color:"#334",marginBottom:"10px",fontStyle:"italic",minHeight:"18px"},id:"liveTranscriptEl"},""));
       } else {
         card.appendChild(p({style:{color:"#778",fontSize:"12px",marginBottom:"10px",textAlign:"center"}},recording?"Microphone active.":"Microphone not active — check permissions."));
       }
