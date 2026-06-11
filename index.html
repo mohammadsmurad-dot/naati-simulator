@@ -233,14 +233,23 @@ async function startRecording() {
 }
 function stopRecording() {
   if(window._naatiRec) { try{window._naatiRec.stop();}catch(e){} window._naatiRec=null; }
-  if(mediaRecorder&&state.recording) { mediaRecorder.stop(); setState({recording:false}); }
   stopTimer();
-  setState({segPhase:"answered", transcript: state.liveTranscript || ""});
-  if(state.liveTranscript) {
-    setTimeout(()=>scoreOnly(state.liveTranscript), 500);
+  const tx = state.liveTranscript || "";
+  if(mediaRecorder&&state.recording) {
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(audioChunks, {type: mediaRecorder.mimeType||"audio/webm"});
+      const url = URL.createObjectURL(blob);
+      state.audioBlob = blob;
+      state.audioUrl = url;
+      setState({segPhase:"answered", transcript: tx, audioUrl: url, audioBlob: blob, recording:false});
+      if(tx) setTimeout(()=>scoreOnly(tx), 500);
+    };
+    mediaRecorder.stop();
+  } else {
+    setState({segPhase:"answered", transcript: tx, recording:false});
+    if(tx) setTimeout(()=>scoreOnly(tx), 500);
   }
 }
-
 // ─── API ─────────────────────────────────────────────────────────────────────
 async function callAPI(body, attempt=1) {
   const headers = { "Content-Type": "application/json" };
