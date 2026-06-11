@@ -211,25 +211,22 @@ async function startRecording() {
       stopViz();
     };
     mediaRecorder.start(200);
-    try {
+    if(window.SpeechRecognition||window.webkitSpeechRecognition) {
       const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
-      if(SR) {
-        const rec = new SR();
-        rec.continuous = true;
-        rec.interimResults = true;
-        rec.lang = "en-AU";
-        rec.onresult = e => {
-          let t = "";
-          for(let i=0;i<e.results.length;i++) t += e.results[i][0].transcript;
-          state.liveTranscript = t;
-          const el = document.getElementById("liveTranscriptEl");
-          if(el) el.textContent = t;
-        };
-        rec.onerror = ()=>{};
-        rec.start();
-        window._naatiRec = rec;
-      }
-    } catch(e){}
+      const rec = new SR();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = state.dialogue?.segments[state.segIdx]?.lang==="ur" ? "en-US" : "en-AU";
+      rec.onresult = e => {
+        let t = "";
+        for(let i=0;i<e.results.length;i++) t += e.results[i][0].transcript;
+        state.liveTranscript = t;
+        const el = document.getElementById("liveTranscriptEl");
+        if(el) el.textContent = t;
+      };
+      rec.start();
+      window._naatiRec = rec;
+    }
   } catch(e) {
     setState({micStatus:"denied",micReady:false});
     stopViz();
